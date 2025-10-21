@@ -1,102 +1,83 @@
 const Restaurant = require('../models/Restaurent');
-const MenuItem = require('../models/MenuItem');
+const Dish = require('../models/Dish');
 
-// @desc    Get all restaurants
-// @route   GET /api/restaurants
-// @access  Public
-exports.getRestaurants = async (req, res) => {
+// Add a new dish
+exports.addDish = async (req, res) => {
   try {
-    const restaurants = await Restaurant.find().populate('menu');
-    res.json(restaurants);
-  } catch (error) {
-    console.error('Get restaurants error:', error);
-    res.status(500).json({ message: 'Server error fetching restaurants' });
-  }
-};
+    const { name, description, price, category } = req.body;
+    const image = req.file?.path; // Cloudinary URL
 
-// @desc    Get single restaurant by ID
-// @route   GET /api/restaurants/:id
-// @access  Public
-exports.getRestaurantById = async (req, res) => {
-  try {
-    const restaurant = await Restaurant.findById(req.params.id).populate('menu');
-    if (!restaurant) return res.status(404).json({ message: 'Restaurant not found' });
-    res.json(restaurant);
-  } catch (error) {
-    console.error('Get restaurant error:', error);
-    res.status(500).json({ message: 'Server error fetching restaurant' });
-  }
-};
-
-// @desc    Create a new restaurant
-// @route   POST /api/restaurants
-// @access  Admin / Restaurant
-exports.createRestaurant = async (req, res) => {
-  try {
-    const { name, location, offers, cuisine, image } = req.body;
-
-    if (!name || !location?.lat || !location?.lng) {
-      return res.status(400).json({ message: 'Name and location are required' });
-    }
-
-    const restaurant = await Restaurant.create({
+    const dish = await Dish.create({
+      restaurant: req.user._id,
       name,
-      location,
-      offers: offers || [],
-      cuisine: cuisine || 'General',
-      image:
-        image ||
-        'https://images.unsplash.com/photo-1600891964599-f61ba0e24092?auto=format&fit=crop&w=800&q=80',
+      description,
+      price,
+      category,
+      image,
     });
 
-    res.status(201).json(restaurant);
+    res.status(201).json({ message: 'Dish added', dish });
   } catch (error) {
-    console.error('Create restaurant error:', error);
-    res.status(500).json({ message: 'Server error creating restaurant' });
+    res.status(500).json({ message: 'Failed to add dish', error: error.message });
   }
 };
 
-// @desc    Update a restaurant (admin/restaurant)
-// @route   PUT /api/restaurants/:id
-// @access  Admin / Restaurant
-exports.updateRestaurant = async (req, res) => {
+// Edit dish
+exports.editDish = async (req, res) => {
   try {
-    const { name, location, offers, cuisine, image, isActive } = req.body;
-    const restaurant = await Restaurant.findById(req.params.id);
+    const { dishId } = req.params;
+    const { name, description, price, category } = req.body;
 
-    if (!restaurant) return res.status(404).json({ message: 'Restaurant not found' });
+    const dish = await Dish.findOne({ _id: dishId, restaurant: req.user._id });
+    if (!dish) return res.status(404).json({ message: 'Dish not found' });
 
-    restaurant.name = name || restaurant.name;
-    restaurant.location = location || restaurant.location;
-    restaurant.offers = offers || restaurant.offers;
-    restaurant.cuisine = cuisine || restaurant.cuisine;
-    restaurant.image = image || restaurant.image;
-    if (typeof isActive === 'boolean') restaurant.isActive = isActive;
+    dish.name = name || dish.name;
+    dish.description = description || dish.description;
+    dish.price = price || dish.price;
+    dish.category = category || dish.category;
+    if (req.file) dish.image = req.file.path;
 
-    await restaurant.save();
-    res.json(restaurant);
+    await dish.save();
+    res.status(200).json({ message: 'Dish updated', dish });
   } catch (error) {
-    console.error('Update restaurant error:', error);
-    res.status(500).json({ message: 'Server error updating restaurant' });
+    res.status(500).json({ message: 'Failed to edit dish', error: error.message });
   }
 };
 
-// @desc    Delete a restaurant (soft delete recommended)
-// @route   DELETE /api/restaurants/:id
-// @access  Admin
-exports.deleteRestaurant = async (req, res) => {
+// Delete dish
+exports.deleteDish = async (req, res) => {
   try {
-    const restaurant = await Restaurant.findById(req.params.id);
-    if (!restaurant) return res.status(404).json({ message: 'Restaurant not found' });
+    const { dishId } = req.params;
+    const dish = await Dish.findOneAndDelete({ _id: dishId, restaurant: req.user._id });
+    if (!dish) return res.status(404).json({ message: 'Dish not found' });
 
-    // Soft delete
-    restaurant.isActive = false;
-    await restaurant.save();
-
-    res.json({ message: 'Restaurant deleted successfully (soft delete)' });
+    res.status(200).json({ message: 'Dish deleted' });
   } catch (error) {
-    console.error('Delete restaurant error:', error);
-    res.status(500).json({ message: 'Server error deleting restaurant' });
+    res.status(500).json({ message: 'Failed to delete dish', error: error.message });
   }
 };
+
+// Get all dishes for restaurant
+exports.getRestaurantDishes = async (req, res) => {
+  try {
+    const dishes = await Dish.find({ restaurant: req.user._id });
+    res.status(200).json({ dishes });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch dishes', error: error.message });
+  }
+};
+
+// Get single restaurant menu (for customers)
+exports.getRestaurantMenu = async (req, res) => {
+  try {
+    const { restaurantId } = req.params;
+    const dishes = await Dish.find({ restaurant: restaurantId });
+    res.status(200).json({ dishes });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch menu', error: error.message });
+  }
+};
+
+
+
 

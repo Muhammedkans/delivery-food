@@ -1,23 +1,12 @@
-// backend/src/routes/ai.js
 const express = require('express');
 const router = express.Router();
-const asyncHandler = require('express-async-handler');
+const { protect } = require('../middleware/authMiddleware');
+const { chatbot, recommendation, reviewAnalysis } = require('../controllers/aiController');
 
-const { getSuggestions } = require('../controllers/aiController');
+router.use(protect);
 
-const protect = require('../middleware/auth');
-const authorize = require('../middleware/roles');
-
-// Only logged-in customers can access AI-based food suggestions
-router.get(
-  '/suggestions',
-  protect,
-  authorize('customer'),
-  asyncHandler(async (req, res) => {
-    await getSuggestions(req, res);
-  })
-);
+router.post('/chatbot', chatbot);
+router.post('/recommendation', recommendation);
+router.post('/review-analysis', reviewAnalysis);
 
 module.exports = router;
-
-
