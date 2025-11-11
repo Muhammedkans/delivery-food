@@ -1,56 +1,193 @@
-const Razorpay = require('razorpay');
-const Cart = require('../models/Cart');
-const Order = require('../models/Order');
+const asyncHandler = require("express-async-handler");
+const Order = require("../models/Order");
+const Cart = require("../models/Cart");
+const Dish = require("../models/Dish");
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
+// @desc    Get all orders (Admin)
+// @route   GET /api/orders
+// @access  Private/Admin
+exports.getAllOrders = asyncHandler(async (req, res) => {
+  const { status, paymentStatus } = req.query;
+
+  const query = {};
+  if (status) query.status = status;
+  if (paymentStatus) query.paymentStatus = paymentStatus;
+
+  const orders = await Order.find(query)
+    .populate("user", "name email phone")
+    .populate("restaurant", "name logo")
+    .populate("deliveryPerson", "name phone")
+    .populate("items.dish", "name image price")
+    .sort({ createdAt: -1 });
+
+  res.status(200).json({
+    success: true,
+    orders,
+  });
 });
 
-// Checkout — create Razorpay order
-exports.checkout = async (req, res) => {
-  const cart = await Cart.findOne({ user: req.user._id }).populate('items.dish');
-  if (!cart || cart.items.length === 0) return res.status(400).json({ message: 'Cart is empty' });
+// @desc    Get single order
+// @route   GET /api/orders/:orderId
+// @access  Private
+exports.getOrderDetails = asyncHandler(async (req, res) => {
+  const { orderId } = req.params;
 
-  const amount = cart.items.reduce((sum, item) => sum + item.dish.price * item.quantity, 0) * 100; // in paise
+  const order = await Order.findById(orderId)
+    .populate("user", "name email phone")
+    .populate("restaurant", "name image logo address")
+    .populate("deliveryPerson", "name phone")
+    .populate("items.dish", "name image price category");
 
-  const options = {
-    amount,
-    currency: 'INR',
-    receipt: `receipt_${Date.now()}`,
-  };
+  if (!order) {
+    return res.status(404).json({
+      success: false,
+      message: "Order not found",
+    });
+  }
 
-  const order = await razorpay.orders.create(options);
-  res.status(200).json({ order });
-};
+  // Check authorization
+  const isAuthorized =
+    req.user.role === "admin" ||
+    order.user._id.toString() === req.user._id.toString() ||
+    (order.restaurant.owner && order.restaurant.owner.toString() === req.user._id.toString());
 
-// Confirm Payment & Create Order
-exports.confirmPayment = async (req, res) => {
-  const { razorpay_order_id, razorpay_payment_id } = req.body;
-  const cart = await Cart.findOne({ user: req.user._id }).populate('items.dish');
-  if (!cart) return res.status(400).json({ message: 'Cart is empty' });
+  if (!isAuthorized) {
+    return res.status(403).json({
+      success: false,
+      message: "Not authorized to view this order",
+    });
+  }
 
-  const totalAmount = cart.items.reduce((sum, item) => sum + item.dish.price * item.quantity, 0);
-
-  // Create Order in DB
-  const order = await Order.create({
-    user: req.user._id,
-    restaurant: cart.items[0].dish.restaurant, // assume all dishes from same restaurant
-    items: cart.items.map(item => ({ dish: item.dish._id, quantity: item.quantity })),
-    totalAmount,
-    status: 'pending',
-    paymentStatus: 'paid',
+  res.status(200).json({
+    success: true,
+    order,
   });
+});
 
-  // Clear cart
-  cart.items = [];
-  await cart.save();
+// @desc    Update order status
+// @route   PUT /api/orders/:orderId/status
+// @access  Private (Admin/Restaurant/Delivery)
+exports.updateOrderStatus = asyncHandler(async (req, res) => {
+  const { orderId } = req.params;
+  const { status } = req.body;
 
-  res.status(200).json({ message: 'Order placed successfully', order });
-};
+  const order = await Order.findById(orderId).populate("restaurant");
 
-// Customer Orders
-exports.getCustomerOrders = async (req, res) => {
-  const orders = await Order.find({ user: req.user._id }).populate('items.dish');
-  res.status(200).json({ orders });
-};
+  if (!order) {
+    return res.status(404).json({
+      success: false,
+      message: "Order not found",
+    });
+  }
+
+  // Authorization check
+  const isAuthorized =
+    req.user.role === "admin" ||
+    (order.restaurant.owner && order.restaurant.owner.toString() === req.user._id.toString()) ||
+    (order.deliveryPerson && order.deliveryPerson.toString() === req.user._id.toString());
+
+  if (!isAuthorized) {
+    return res.status(403).json({
+      success: false,
+      message: "Not authorized to update this order",
+    });
+  }
+
+  order.status = status;
+
+  if (status === "ready") {
+    order.estimatedDeliveryTime = new Date(Date.now() + 30 * 60 * 1000);
+  }
+
+  if (status === "delivered") {
+    order.deliveredAt = new Date();
+  }
+
+  if (status === "cancelled") {
+    order.cancelledAt = new Date();
+    if (order.paymentStatus === "paid") {
+      order.paymentStatus = "refunded";
+    }
+  }
+
+  await order.save();
+
+  // Emit socket event
+  const { io } = require("../sockets/index");
+  if (io) {
+    io.to(`order_${orderId}`).emit("orderStatusUpdated", {
+      orderId: order._id,
+      status: order.status,
+      estimatedDeliveryTime: order.estimatedDeliveryTime,
+      deliveredAt: order.deliveredAt,
+    });
+
+    if (order.user) {
+      io.to(`user_${order.user}`).emit("orderUpdate", {
+        orderId: order._id,
+        status: order.status,
+      });
+    }
+
+    if (order.restaurant) {
+      io.to(`restaurant_${order.restaurant._id || order.restaurant}`).emit("orderUpdate", {
+        orderId: order._id,
+        status: order.status,
+      });
+    }
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Order status updated successfully",
+    order,
+  });
+});
+
+// @desc    Get customer orders
+// @route   GET /api/customer/orders
+// @access  Private
+exports.getCustomerOrders = asyncHandler(async (req, res) => {
+  const { status } = req.query;
+
+  const query = { user: req.user._id };
+  if (status) query.status = status;
+
+  const orders = await Order.find(query)
+    .populate("restaurant", "name image logo")
+    .populate("items.dish", "name image price")
+    .populate("deliveryPerson", "name phone")
+    .sort({ createdAt: -1 });
+
+  res.status(200).json({
+    success: true,
+    orders,
+  });
+});
+
+// @desc    Get single order details (Customer)
+// @route   GET /api/customer/orders/:orderId
+// @access  Private
+exports.getOrderDetails = asyncHandler(async (req, res) => {
+  const { orderId } = req.params;
+
+  const order = await Order.findOne({
+    _id: orderId,
+    user: req.user._id,
+  })
+    .populate("restaurant", "name image logo address contact")
+    .populate("items.dish", "name image price category")
+    .populate("deliveryPerson", "name phone");
+
+  if (!order) {
+    return res.status(404).json({
+      success: false,
+      message: "Order not found",
+    });
+  }
+
+  res.status(200).json({
+    success: true,
+    order,
+  });
+});

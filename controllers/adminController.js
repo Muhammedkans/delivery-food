@@ -1,52 +1,169 @@
-const User = require('../models/User');
-const Restaurant = require('../models/Restaurent');
-const Dish = require('../models/Dish');
-const Order = require('../models/Order');
-const Review = require('../models/Review');
+// backend/controllers/adminController.js
+const User = require("../models/User");
+const Order = require("../models/Order");
+const DeliveryPartner = require("../models/DeliveryPartner");
 
-// Get all users
-exports.getAllUsers = async (req, res) => {
-  const users = await User.find().select('-password');
-  res.status(200).json({ users });
+// --------------------------------------------------
+// ✅ GET ALL USERS (Customers)
+// --------------------------------------------------
+exports.getAllCustomers = async (req, res) => {
+  try {
+    const customers = await User.find({ role: "customer" }).select("-password");
+
+    res.status(200).json({
+      success: true,
+      customers,
+    });
+  } catch (error) {
+    console.error("Get All Customers Error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
 };
 
-// Block/Unblock user
-exports.blockUser = async (req, res) => {
-  const { userId, block } = req.body;
-  const user = await User.findById(userId);
-  if (!user) return res.status(404).json({ message: 'User not found' });
+// --------------------------------------------------
+// ✅ GET ALL RESTAURANTS
+// --------------------------------------------------
+exports.getAllRestaurants = async (req, res) => {
+  try {
+    const restaurants = await User.find({ role: "restaurant" }).select("-password");
 
-  user.isBlocked = block;
-  await user.save();
-  res.status(200).json({ message: `User ${block ? 'blocked' : 'unblocked'}` });
+    res.status(200).json({
+      success: true,
+      restaurants,
+    });
+  } catch (error) {
+    console.error("Get All Restaurants Error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
 };
 
-// Approve Restaurant
+// --------------------------------------------------
+// ✅ APPROVE RESTAURANT
+// --------------------------------------------------
 exports.approveRestaurant = async (req, res) => {
-  const { restaurantId, approve } = req.body;
-  const restaurant = await Restaurant.findById(restaurantId);
-  if (!restaurant) return res.status(404).json({ message: 'Restaurant not found' });
+  try {
+    const { restaurantId } = req.params;
 
-  restaurant.isApproved = approve;
-  await restaurant.save();
-  res.status(200).json({ message: `Restaurant ${approve ? 'approved' : 'disapproved'}` });
+    const restaurant = await User.findById(restaurantId);
+
+    if (!restaurant || restaurant.role !== "restaurant") {
+      return res.status(404).json({ success: false, message: "Restaurant not found" });
+    }
+
+    restaurant.restaurantDetails.isApproved = true;
+    await restaurant.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Restaurant approved successfully",
+    });
+  } catch (error) {
+    console.error("Approve Restaurant Error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
 };
 
-// Analytics
-exports.getAnalytics = async (req, res) => {
-  const totalUsers = await User.countDocuments();
-  const totalRestaurants = await Restaurant.countDocuments();
-  const totalOrders = await Order.countDocuments();
-  const totalSalesAgg = await Order.aggregate([
-    { $group: { _id: null, totalSales: { $sum: '$totalAmount' } } },
-  ]);
-  const totalSales = totalSalesAgg[0]?.totalSales || 0;
+// --------------------------------------------------
+// ✅ BLOCK / UNBLOCK RESTAURANT
+// --------------------------------------------------
+exports.toggleRestaurantBlock = async (req, res) => {
+  try {
+    const { restaurantId } = req.params;
 
-  res.status(200).json({
-    totalUsers,
-    totalRestaurants,
-    totalOrders,
-    totalSales,
-  });
+    const restaurant = await User.findById(restaurantId);
+
+    if (!restaurant || restaurant.role !== "restaurant") {
+      return res.status(404).json({ success: false, message: "Restaurant not found" });
+    }
+
+    restaurant.restaurantDetails.isBlocked =
+      !restaurant.restaurantDetails.isBlocked;
+
+    await restaurant.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Restaurant is now ${
+        restaurant.restaurantDetails.isBlocked ? "Blocked" : "Active"
+      }`,
+    });
+  } catch (error) {
+    console.error("Toggle Block Error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// --------------------------------------------------
+// ✅ GET ALL DELIVERY PARTNERS
+// --------------------------------------------------
+exports.getAllDeliveryPartners = async (req, res) => {
+  try {
+    const partners = await User.find({ role: "delivery" }).select("-password");
+
+    res.status(200).json({
+      success: true,
+      partners,
+    });
+  } catch (error) {
+    console.error("Get Delivery Partners Error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// --------------------------------------------------
+// ✅ GET ALL ORDERS
+// --------------------------------------------------
+exports.getAllOrders = async (req, res) => {
+  try {
+    const orders = await Order.find()
+      .populate("customer", "name email")
+      .populate("restaurant", "name restaurantDetails.restaurantName")
+      .populate("deliveryPartner", "name email");
+
+    res.status(200).json({
+      success: true,
+      orders,
+    });
+  } catch (error) {
+    console.error("Get All Orders Error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// --------------------------------------------------
+// ✅ ADMIN DASHBOARD STATS
+// --------------------------------------------------
+exports.getAdminStats = async (req, res) => {
+  try {
+    const totalCustomers = await User.countDocuments({ role: "customer" });
+    const totalRestaurants = await User.countDocuments({ role: "restaurant" });
+    const totalDeliveryPartners = await User.countDocuments({ role: "delivery" });
+    const totalOrders = await Order.countDocuments();
+    const activeOrders = await Order.countDocuments({
+      status: { $in: ["placed", "accepted", "picked_up"] },
+    });
+
+    const revenueAgg = await Order.aggregate([
+      { $match: { status: "delivered" } },
+      { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+    ]);
+
+    const totalRevenue = revenueAgg[0]?.total || 0;
+
+    res.status(200).json({
+      success: true,
+      stats: {
+        totalCustomers,
+        totalRestaurants,
+        totalDeliveryPartners,
+        totalOrders,
+        activeOrders,
+        totalRevenue,
+      },
+    });
+  } catch (error) {
+    console.error("Admin Stats Error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
 };
 

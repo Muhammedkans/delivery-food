@@ -1,83 +1,254 @@
-const Restaurant = require('../models/Restaurent');
-const Dish = require('../models/Dish');
+// backend/controllers/restaurantController.js
+const User = require("../models/User");
+const Dish = require("../models/Dish");
+const cloudinary = require("../config/cloudinary");
+const mongoose = require("mongoose");
 
-// Add a new dish
+// --------------------------------------------------
+// ✅ GET RESTAURANT PROFILE
+// --------------------------------------------------
+exports.getRestaurantProfile = async (req, res) => {
+  try {
+    const restaurant = await User.findById(req.user._id).select("-password");
+
+    if (!restaurant || restaurant.role !== "restaurant") {
+      return res.status(404).json({ success: false, message: "Restaurant not found" });
+    }
+
+    res.status(200).json({ success: true, restaurant });
+  } catch (error) {
+    console.error("Get Restaurant Profile Error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// --------------------------------------------------
+// ✅ UPDATE RESTAURANT PROFILE
+// --------------------------------------------------
+exports.updateRestaurantProfile = async (req, res) => {
+  try {
+    const { name, phone, address, cuisines, deliveryTime } = req.body;
+
+    const restaurant = await User.findById(req.user._id);
+
+    if (!restaurant) {
+      return res.status(404).json({ success: false, message: "Restaurant not found" });
+    }
+
+    restaurant.name = name || restaurant.name;
+    restaurant.phone = phone || restaurant.phone;
+    restaurant.address = address || restaurant.address;
+    restaurant.cuisines = cuisines || restaurant.cuisines;
+    restaurant.deliveryTime = deliveryTime || restaurant.deliveryTime;
+
+    // ✅ Upload banner image if provided
+    if (req.files?.banner) {
+      const bannerUpload = req.files.banner[0];
+      const result = await cloudinary.uploader.upload(bannerUpload.path, {
+        folder: "foodapp/restaurant/banner",
+      });
+      restaurant.restaurantDetails.bannerImage = result.secure_url;
+    }
+
+    // ✅ Upload logo image if provided
+    if (req.files?.logo) {
+      const logoUpload = req.files.logo[0];
+      const result = await cloudinary.uploader.upload(logoUpload.path, {
+        folder: "foodapp/restaurant/logo",
+      });
+      restaurant.restaurantDetails.logo = result.secure_url;
+    }
+
+    await restaurant.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Restaurant updated successfully",
+      restaurant,
+    });
+  } catch (error) {
+    console.error("Update Restaurant Profile Error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// --------------------------------------------------
+// ✅ ADD DISH
+// --------------------------------------------------
 exports.addDish = async (req, res) => {
   try {
-    const { name, description, price, category } = req.body;
-    const image = req.file?.path; // Cloudinary URL
+    const { name, description, price, category, isVeg, isAvailable } = req.body;
+
+    // ✅ Check restaurant
+    const restaurant = await User.findById(req.user._id);
+    if (!restaurant || restaurant.role !== "restaurant") {
+      return res.status(403).json({ success: false, message: "Unauthorized" });
+    }
+
+    let imageUrl = "";
+
+    if (req.file) {
+      const upload = await cloudinary.uploader.upload(req.file.path, {
+        folder: "foodapp/dishes",
+      });
+      imageUrl = upload.secure_url;
+    }
 
     const dish = await Dish.create({
-      restaurant: req.user._id,
+      restaurant: restaurant._id,
       name,
       description,
       price,
       category,
-      image,
+      isVeg,
+      isAvailable,
+      imageUrl,
     });
 
-    res.status(201).json({ message: 'Dish added', dish });
+    res.status(201).json({
+      success: true,
+      message: "Dish added successfully",
+      dish,
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to add dish', error: error.message });
+    console.error("Add Dish Error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// Edit dish
-exports.editDish = async (req, res) => {
+// --------------------------------------------------
+// ✅ UPDATE DISH
+// --------------------------------------------------
+exports.updateDish = async (req, res) => {
   try {
     const { dishId } = req.params;
-    const { name, description, price, category } = req.body;
 
-    const dish = await Dish.findOne({ _id: dishId, restaurant: req.user._id });
-    if (!dish) return res.status(404).json({ message: 'Dish not found' });
+    const dish = await Dish.findById(dishId);
+    if (!dish) {
+      return res.status(404).json({ success: false, message: "Dish not found" });
+    }
+
+    // ✅ Ensure restaurant owner
+    if (dish.restaurant.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { name, description, price, category, isVeg, isAvailable } = req.body;
 
     dish.name = name || dish.name;
     dish.description = description || dish.description;
     dish.price = price || dish.price;
     dish.category = category || dish.category;
-    if (req.file) dish.image = req.file.path;
+    dish.isVeg = isVeg ?? dish.isVeg;
+    dish.isAvailable = isAvailable ?? dish.isAvailable;
+
+    if (req.file) {
+      const upload = await cloudinary.uploader.upload(req.file.path, {
+        folder: "foodapp/dishes",
+      });
+      dish.imageUrl = upload.secure_url;
+    }
 
     await dish.save();
-    res.status(200).json({ message: 'Dish updated', dish });
+
+    res.status(200).json({
+      success: true,
+      message: "Dish updated successfully",
+      dish,
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to edit dish', error: error.message });
+    console.error("Update Dish Error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// Delete dish
+// --------------------------------------------------
+// ✅ DELETE DISH
+// --------------------------------------------------
 exports.deleteDish = async (req, res) => {
   try {
     const { dishId } = req.params;
-    const dish = await Dish.findOneAndDelete({ _id: dishId, restaurant: req.user._id });
-    if (!dish) return res.status(404).json({ message: 'Dish not found' });
 
-    res.status(200).json({ message: 'Dish deleted' });
+    const dish = await Dish.findById(dishId);
+    if (!dish) {
+      return res.status(404).json({ success: false, message: "Dish not found" });
+    }
+
+    if (dish.restaurant.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: "Unauthorized" });
+    }
+
+    await dish.deleteOne();
+
+    res.status(200).json({
+      success: true,
+      message: "Dish deleted successfully",
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to delete dish', error: error.message });
+    console.error("Delete Dish Error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// Get all dishes for restaurant
-exports.getRestaurantDishes = async (req, res) => {
-  try {
-    const dishes = await Dish.find({ restaurant: req.user._id });
-    res.status(200).json({ dishes });
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch dishes', error: error.message });
-  }
-};
-
-// Get single restaurant menu (for customers)
+// --------------------------------------------------
+// ✅ GET RESTAURANT MENU
+// --------------------------------------------------
 exports.getRestaurantMenu = async (req, res) => {
   try {
     const { restaurantId } = req.params;
-    const dishes = await Dish.find({ restaurant: restaurantId });
-    res.status(200).json({ dishes });
+
+    const dishes = await Dish.find({ restaurant: restaurantId }).sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      dishes,
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch menu', error: error.message });
+    console.error("Get Restaurant Menu Error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
+// --------------------------------------------------
+// ✅ GET ALL RESTAURANTS
+// --------------------------------------------------
+exports.getAllRestaurants = async (req, res) => {
+  try {
+    const restaurants = await User.find({ role: "restaurant", "restaurantDetails.isApproved": true })
+      .select("-password")
+      .sort({ createdAt: -1 });
 
+    res.status(200).json({
+      success: true,
+      restaurants,
+    });
+  } catch (error) {
+    console.error("Get All Restaurants Error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
 
+// --------------------------------------------------
+// ✅ CHANGE OPEN/CLOSE STATUS
+// --------------------------------------------------
+exports.toggleRestaurantStatus = async (req, res) => {
+  try {
+    const restaurant = await User.findById(req.user._id);
+
+    if (!restaurant) {
+      return res.status(404).json({ success: false, message: "Restaurant not found" });
+    }
+
+    restaurant.restaurantDetails.isOpen = !restaurant.restaurantDetails.isOpen;
+    await restaurant.save();
+
+    res.status(200).json({
+      success: true,
+      isOpen: restaurant.restaurantDetails.isOpen,
+    });
+  } catch (error) {
+    console.error("Toggle Restaurant Status Error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
 

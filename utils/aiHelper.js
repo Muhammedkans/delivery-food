@@ -1,16 +1,44 @@
-require('dotenv').config();  // 👈 Add this line first
+require("dotenv").config();
 
-const OpenAI = require('openai');
+const OpenAI = require("openai");
+
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY, // 👈 Make sure the name matches your .env file
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
-exports.generateAIResponse = async (message) => {
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-3.5-turbo',
-    messages: [{ role: 'user', content: message }],
-  });
+/**
+ * Generate AI response using OpenAI
+ * @param {string} message - User message
+ * @param {string} systemPrompt - Optional system prompt for context
+ * @returns {Promise<string>} AI response
+ */
+exports.generateAIResponse = async (message, systemPrompt = null) => {
+  try {
+    const messages = [];
 
-  return completion.choices[0].message.content;
+    if (systemPrompt) {
+      messages.push({
+        role: "system",
+        content: systemPrompt,
+      });
+    }
+
+    messages.push({
+      role: "user",
+      content: message,
+    });
+
+    const completion = await openai.chat.completions.create({
+      model: process.env.OPENAI_MODEL || "gpt-3.5-turbo",
+      messages,
+      temperature: 0.7,
+      max_tokens: 500,
+    });
+
+    return completion.choices[0].message.content;
+  } catch (error) {
+    console.error("OpenAI API Error:", error);
+    throw new Error("Failed to generate AI response");
+  }
 };
 

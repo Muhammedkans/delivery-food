@@ -1,87 +1,87 @@
-// backend/routes/adminRoutes.js
+// backend/routes/deliveryRoutes.js
 const express = require("express");
 const router = express.Router();
 
 const {
-  getAllCustomers,
-  getAllRestaurants,
-  approveRestaurant,
-  toggleRestaurantBlock,
-  getAllDeliveryPartners,
-  getAllOrders,
-  getAdminStats,
-} = require("../controllers/adminController");
+  toggleOnlineStatus,
+  updateLocation,
+  acceptOrder,
+  rejectOrder,
+  markPickedUp,
+  markDelivered,
+  deliveryDashboard,
+} = require("../controllers/deliveryController");
 
 const { protect, authorizeRoles } = require("../middlewares/authMiddleware");
 
 // --------------------------------------------------
-// ✅ ADMIN — GET ALL CUSTOMERS
-// --------------------------------------------------
-router.get(
-  "/customers",
-  protect,
-  authorizeRoles("admin"),
-  getAllCustomers
-);
-
-// --------------------------------------------------
-// ✅ ADMIN — GET ALL RESTAURANTS
-// --------------------------------------------------
-router.get(
-  "/restaurants",
-  protect,
-  authorizeRoles("admin"),
-  getAllRestaurants
-);
-
-// --------------------------------------------------
-// ✅ ADMIN — APPROVE RESTAURANT
+// ✅ DELIVERY PARTNER ONLINE/OFFLINE
 // --------------------------------------------------
 router.put(
-  "/restaurants/approve/:restaurantId",
+  "/online",
   protect,
-  authorizeRoles("admin"),
-  approveRestaurant
+  authorizeRoles("delivery"),
+  toggleOnlineStatus
 );
 
 // --------------------------------------------------
-// ✅ ADMIN — BLOCK / UNBLOCK RESTAURANT
+// ✅ LIVE LOCATION UPDATE
 // --------------------------------------------------
 router.put(
-  "/restaurants/block/:restaurantId",
+  "/location",
   protect,
-  authorizeRoles("admin"),
-  toggleRestaurantBlock
+  authorizeRoles("delivery"),
+  updateLocation
 );
 
 // --------------------------------------------------
-// ✅ ADMIN — GET ALL DELIVERY PARTNERS
+// ✅ ACCEPT ORDER
 // --------------------------------------------------
-router.get(
-  "/delivery-partners",
+router.put(
+  "/accept/:orderId",
   protect,
-  authorizeRoles("admin"),
-  getAllDeliveryPartners
+  authorizeRoles("delivery"),
+  acceptOrder
 );
 
 // --------------------------------------------------
-// ✅ ADMIN — GET ALL ORDERS
+// ✅ REJECT ORDER
 // --------------------------------------------------
-router.get(
-  "/orders",
+router.put(
+  "/reject/:orderId",
   protect,
-  authorizeRoles("admin"),
-  getAllOrders
+  authorizeRoles("delivery"),
+  rejectOrder
 );
 
 // --------------------------------------------------
-// ✅ ADMIN — DASHBOARD STATS
+// ✅ MARK PICKED UP
+// --------------------------------------------------
+router.put(
+  "/picked-up/:orderId",
+  protect,
+  authorizeRoles("delivery"),
+  markPickedUp
+);
+
+// --------------------------------------------------
+// ✅ MARK DELIVERED
+// --------------------------------------------------
+router.put(
+  "/delivered/:orderId",
+  protect,
+  authorizeRoles("delivery"),
+  markDelivered
+);
+
+// --------------------------------------------------
+// ✅ DELIVERY DASHBOARD
 // --------------------------------------------------
 router.get(
-  "/stats",
+  "/dashboard",
   protect,
-  authorizeRoles("admin"),
-  getAdminStats
+  authorizeRoles("delivery"),
+  deliveryDashboard
 );
 
 module.exports = router;

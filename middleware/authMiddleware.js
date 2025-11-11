@@ -1,31 +1,56 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+// backend/middlewares/authMiddleware.js
+const jwt = require("jsonwebtoken");
+const User = require("../models/User");
 
-exports.protect = async (req, res, next) => {
+// Verify Login (Token Required)
+const protect = async (req, res, next) => {
   try {
-    const token = req.cookies.jwt;
-    if (!token) return res.status(401).json({ message: 'Not authorized, no token' });
+    const token = req.cookies.token;
 
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authorized, token missing.",
+      });
+    }
+
+    // Verify Token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = await User.findById(decoded.userId).select('-password');
 
-    if (!req.user) return res.status(404).json({ message: 'User not found' });
+    req.user = await User.findById(decoded.id).select("-password");
+
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not found. Unauthorized.",
+      });
+    }
 
     next();
   } catch (error) {
-    res.status(401).json({ message: 'Not authorized, token failed' });
+    console.error("Auth Error:", error.message);
+    return res.status(401).json({
+      success: false,
+      message: "Token invalid or expired",
+    });
   }
 };
 
-// Role-based access
-exports.authorize = (...roles) => {
+// Role-based Access (Admin / Restaurant / Delivery / Customer)
+const authorizeRoles = (...roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ message: 'Access denied' });
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Insufficient permissions.",
+      });
     }
     next();
   };
 };
+
+module.exports = { protect, authorizeRoles };
+
 
 
 

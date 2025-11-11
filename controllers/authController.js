@@ -1,59 +1,219 @@
-const User = require('../models/User');
-const generateToken = require('../utils/generateToken');
+// backend/controllers/authController.js
+const User = require("../models/User");
+const DeliveryPartner = require("../models/DeliveryPartner");
+const generateToken = require("../utils/generateToken");
+const bcrypt = require("bcryptjs");
 
-// Signup
-exports.signup = async (req, res) => {
+// ------------------------------
+// ✅ CUSTOMER SIGNUP
+// ------------------------------
+exports.registerCustomer = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, phone, address } = req.body;
 
-    const userExists = await User.findOne({ email });
-    if (userExists) return res.status(400).json({ message: 'User already exists' });
+    // Check existing user
+    const exists = await User.findOne({ email });
+    if (exists) {
+      return res.status(400).json({ success: false, message: "Email already exists" });
+    }
 
-    const user = await User.create({ name, email, password, role });
-    generateToken(res, user._id, user.role);
-
-    res.status(201).json({
-      message: 'Signup successful',
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
+    const user = await User.create({
+      name,
+      email,
+      password,
+      phone,
+      address,
+      role: "customer",
     });
+
+    generateToken(user, 201, res);
   } catch (error) {
-    res.status(500).json({ message: 'Signup failed', error: error.message });
+    console.error("Customer Register Error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// Login
-exports.login = async (req, res) => {
+// ------------------------------
+// ✅ CUSTOMER LOGIN
+// ------------------------------
+exports.loginCustomer = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
-    if (!user || !(await user.matchPassword(password))) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+    const user = await User.findOne({ email }).select("+password");
+    if (!user || user.role !== "customer") {
+      return res.status(401).json({ success: false, message: "Invalid credentials" });
     }
 
-    generateToken(res, user._id, user.role);
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: "Invalid password" });
+    }
 
-    res.status(200).json({
-      message: 'Login successful',
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
-    });
+    generateToken(user, 200, res);
   } catch (error) {
-    res.status(500).json({ message: 'Login failed', error: error.message });
+    console.error("Customer Login Error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// Logout
+// ------------------------------
+// ✅ RESTAURANT SIGNUP
+// ------------------------------
+exports.registerRestaurant = async (req, res) => {
+  try {
+    const { name, email, password, phone, restaurantName, gstNumber, fssaiNumber } = req.body;
+
+    const exists = await User.findOne({ email });
+
+    if (exists) {
+      return res.status(400).json({ success: false, message: "Email already exists" });
+    }
+
+    const user = await User.create({
+      name,
+      email,
+      password,
+      phone,
+      role: "restaurant",
+      restaurantDetails: {
+        restaurantName,
+        gstNumber,
+        fssaiNumber,
+        isApproved: false, // admin must approve
+      },
+    });
+
+    generateToken(user, 201, res);
+  } catch (error) {
+    console.error("Restaurant Register Error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ------------------------------
+// ✅ RESTAURANT LOGIN
+// ------------------------------
+exports.loginRestaurant = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email }).select("+password");
+    if (!user || user.role !== "restaurant") {
+      return res.status(401).json({ success: false, message: "Invalid credentials" });
+    }
+
+    if (!user.restaurantDetails.isApproved) {
+      return res.status(403).json({ success: false, message: "Restaurant not approved by admin" });
+    }
+
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: "Invalid password" });
+    }
+
+    generateToken(user, 200, res);
+  } catch (error) {
+    console.error("Restaurant Login Error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ------------------------------
+// ✅ DELIVERY PARTNER SIGNUP
+// ------------------------------
+exports.registerDeliveryPartner = async (req, res) => {
+  try {
+    const { name, email, password, phone, vehicleNumber, drivingLicense } = req.body;
+
+    const exists = await User.findOne({ email });
+
+    if (exists) {
+      return res.status(400).json({ success: false, message: "Email already exists" });
+    }
+
+    const user = await User.create({
+      name,
+      email,
+      password,
+      phone,
+      role: "delivery",
+      deliveryDetails: {
+        vehicleNumber,
+        drivingLicense,
+      },
+    });
+
+    // Create delivery partner extra profile
+    await DeliveryPartner.create({
+      user: user._id,
+      vehicleNumber,
+    });
+
+    generateToken(user, 201, res);
+  } catch (error) {
+    console.error("Delivery Register Error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ------------------------------
+// ✅ DELIVERY PARTNER LOGIN
+// ------------------------------
+exports.loginDeliveryPartner = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email }).select("+password");
+    if (!user || user.role !== "delivery") {
+      return res.status(401).json({ success: false, message: "Invalid credentials" });
+    }
+
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: "Invalid password" });
+    }
+
+    generateToken(user, 200, res);
+  } catch (error) {
+    console.error("Delivery Login Error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ------------------------------
+// ✅ ADMIN LOGIN
+// ------------------------------
+exports.loginAdmin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const admin = await User.findOne({ email }).select("+password");
+
+    if (!admin || admin.role !== "admin") {
+      return res.status(401).json({ success: false, message: "Invalid admin credentials" });
+    }
+
+    const isMatch = await admin.comparePassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: "Invalid password" });
+    }
+
+    generateToken(admin, 200, res);
+  } catch (error) {
+    console.error("Admin Login Error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ------------------------------
+// ✅ LOGOUT
+// ------------------------------
 exports.logout = async (req, res) => {
-  res.cookie('jwt', '', { httpOnly: true, expires: new Date(0) });
-  res.status(200).json({ message: 'Logged out successfully' });
+  res.clearCookie("token");
+  res.status(200).json({
+    success: true,
+    message: "Logged out successfully",
+  });
 };
-
-// Get current user profile
-exports.getProfile = async (req, res) => {
-  res.status(200).json({ user: req.user });
-};
-
-
-
-
 
