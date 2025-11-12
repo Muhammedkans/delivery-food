@@ -6,7 +6,7 @@ const cartSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      unique: true,
+      unique: true, // This already creates an index automatically
     },
     items: [
       {
@@ -28,7 +28,7 @@ const cartSchema = new mongoose.Schema(
   }
 );
 
-// Indexes
-cartSchema.index({ user: 1 });
+// ❌ Remove this duplicate index line
+// cartSchema.index({ user: 1 });
 
 module.exports = mongoose.model("Cart", cartSchema);

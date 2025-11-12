@@ -1,7 +1,7 @@
 // backend/controllers/chatController.js
 const ChatMessage = require("../models/ChatMessage");
 const Order = require("../models/Order");
-const cloudinary = require("../config/cloudinary");
+const cloudinary = require("../config/cloudinaryConfig");
 
 // --------------------------------------------------
 // ✅ SEND MESSAGE (Text or Image)

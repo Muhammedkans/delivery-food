@@ -9,8 +9,8 @@ const {
   sendAIMessage,
 } = require("../controllers/chatController");
 
-const { protect } = require("../middlewares/authMiddleware");
-const { uploadChatImage } = require("../middlewares/uploadMiddleware");
+const { protect } = require("../middleware/authMiddleware");
+const { uploadChatImage } = require("../middleware/upload");
 
 // --------------------------------------------------
 // ✅ SEND MESSAGE (TEXT or IMAGE)

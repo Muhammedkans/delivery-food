@@ -12,8 +12,8 @@ const {
   toggleRestaurantStatus,
 } = require("../controllers/restaurantController");
 
-const { protect, authorizeRoles } = require("../middlewares/authMiddleware");
-const { uploadRestaurantImages, uploadDishImage } = require("../middlewares/uploadMiddleware");
+const { protect, authorizeRoles } = require("../middleware/authMiddleware");
+const { uploadRestaurantImages, uploadDishImage } = require("../middleware/upload");
 
 // --------------------------------------------------
 // ✅ GET RESTAURANT PROFILE

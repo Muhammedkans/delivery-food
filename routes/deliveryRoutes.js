@@ -12,7 +12,7 @@ const {
   deliveryDashboard,
 } = require("../controllers/deliveryController");
 
-const { protect, authorizeRoles } = require("../middlewares/authMiddleware");
+const { protect, authorizeRoles } = require("../middleware/authMiddleware");
 
 // --------------------------------------------------
 // ✅ DELIVERY PARTNER ONLINE/OFFLINE

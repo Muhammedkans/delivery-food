@@ -6,7 +6,7 @@ const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
 const connectDB = require("./config/db");
-const errorHandler = require("./middlewares/errorMiddleware");
+const errorHandler = require("./middleware/error");
 
 dotenv.config();
 
@@ -85,8 +85,7 @@ app.use("/api/customer", require("./routes/customerRoutes"));
 app.use("/api/restaurant", require("./routes/restaurantRoutes"));
 app.use("/api/delivery", require("./routes/deliveryRoutes"));
 app.use("/api/admin", require("./routes/adminRoutes"));
-app.use("/api/cart", require("./routes/cartRoutes"));
-app.use("/api/order", require("./routes/orderRoutes"));
+
 app.use("/api/chat", require("./routes/chatRoutes"));
 app.use("/api/payment", require("./routes/paymentRoutes"));
 app.use("/api/ai", require("./routes/aiRoutes"));

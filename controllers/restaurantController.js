@@ -1,8 +1,9 @@
 // backend/controllers/restaurantController.js
 const User = require("../models/User");
 const Dish = require("../models/Dish");
-const cloudinary = require("../config/cloudinary");
+const cloudinary = require("../config/cloudinaryConfig");
 const mongoose = require("mongoose");
+const Restaurent = require("../models/Restaurent");
 
 // --------------------------------------------------
 // ✅ GET RESTAURANT PROFILE
@@ -214,17 +215,17 @@ exports.getRestaurantMenu = async (req, res) => {
 // --------------------------------------------------
 exports.getAllRestaurants = async (req, res) => {
   try {
-    const restaurants = await User.find({ role: "restaurant", "restaurantDetails.isApproved": true })
-      .select("-password")
-      .sort({ createdAt: -1 });
-
+    const restaurants = await Restaurent.find();
     res.status(200).json({
       success: true,
       restaurants,
     });
   } catch (error) {
-    console.error("Get All Restaurants Error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
+    console.error("Error fetching restaurants:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching restaurants",
+    });
   }
 };
 

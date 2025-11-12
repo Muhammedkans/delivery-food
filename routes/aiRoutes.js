@@ -8,7 +8,7 @@ const {
   aiHealthyMeals,
 } = require("../controllers/aiController");
 
-const { protect } = require("../middlewares/authMiddleware");
+const { protect } = require("../middleware/authMiddleware");
 
 // --------------------------------------------------
 // ✅ AI CHAT ASSISTANT

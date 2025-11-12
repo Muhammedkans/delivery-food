@@ -12,7 +12,7 @@ const {
   getAdminStats,
 } = require("../controllers/adminController");
 
-const { protect, authorizeRoles } = require("../middlewares/authMiddleware");
+const { protect, authorizeRoles } = require("../middleware/authMiddleware");
 
 // --------------------------------------------------
 // ✅ ADMIN — GET ALL CUSTOMERS

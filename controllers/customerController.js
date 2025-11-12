@@ -3,7 +3,7 @@ const User = require("../models/User");
 const Dish = require("../models/Dish");
 const Order = require("../models/Order");
 const Cart = require("../models/Cart");
-const Restaurant = require("../models/Restaurant");
+const Restaurant = require("../models/Restaurent");
 
 // --------------------------------------------------
 // ✅ GET ALL RESTAURANTS (Homepage)

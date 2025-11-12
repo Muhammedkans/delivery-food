@@ -8,7 +8,7 @@ const {
   paymentFailed,
 } = require("../controllers/paymentController");
 
-const { protect, authorizeRoles } = require("../middlewares/authMiddleware");
+const { protect, authorizeRoles } = require("../middleware/authMiddleware");
 
 // --------------------------------------------------
 // ✅ CREATE RAZORPAY ORDER (CUSTOMER)

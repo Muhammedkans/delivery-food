@@ -15,7 +15,7 @@ const {
   getActiveOrder,
 } = require("../controllers/customerController");
 
-const { protect, authorizeRoles } = require("../middlewares/authMiddleware");
+const { protect, authorizeRoles } = require("../middleware/authMiddleware");
 
 // --------------------------------------------------
 // ✅ HOMEPAGE RESTAURANTS (PUBLIC)
