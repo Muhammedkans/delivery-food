@@ -1,21 +1,24 @@
 // backend/routes/deliveryRoutes.js
+
 const express = require("express");
 const router = express.Router();
 
 const {
   toggleOnlineStatus,
   updateLocation,
-  acceptOrder,
-  rejectOrder,
-  markPickedUp,
-  markDelivered,
+  updateDeliveryStatus,
   deliveryDashboard,
+  getDeliveryProfile,
+  updateDeliveryProfile,
 } = require("../controllers/deliveryController");
 
 const { protect, authorizeRoles } = require("../middleware/authMiddleware");
 
+// ⭐ File upload middleware for delivery profile
+const { uploadDeliveryProfile } = require("../middleware/upload");
+
 // --------------------------------------------------
-// ✅ DELIVERY PARTNER ONLINE/OFFLINE
+// 🚀 TOGGLE ONLINE / OFFLINE
 // --------------------------------------------------
 router.put(
   "/online",
@@ -25,7 +28,7 @@ router.put(
 );
 
 // --------------------------------------------------
-// ✅ LIVE LOCATION UPDATE
+// 📍 UPDATE LIVE LOCATION
 // --------------------------------------------------
 router.put(
   "/location",
@@ -35,47 +38,17 @@ router.put(
 );
 
 // --------------------------------------------------
-// ✅ ACCEPT ORDER
+// 📦 UPDATE DELIVERY STATUS
 // --------------------------------------------------
 router.put(
-  "/accept/:orderId",
+  "/status/:orderId",
   protect,
   authorizeRoles("delivery"),
-  acceptOrder
+  updateDeliveryStatus
 );
 
 // --------------------------------------------------
-// ✅ REJECT ORDER
-// --------------------------------------------------
-router.put(
-  "/reject/:orderId",
-  protect,
-  authorizeRoles("delivery"),
-  rejectOrder
-);
-
-// --------------------------------------------------
-// ✅ MARK PICKED UP
-// --------------------------------------------------
-router.put(
-  "/picked-up/:orderId",
-  protect,
-  authorizeRoles("delivery"),
-  markPickedUp
-);
-
-// --------------------------------------------------
-// ✅ MARK DELIVERED
-// --------------------------------------------------
-router.put(
-  "/delivered/:orderId",
-  protect,
-  authorizeRoles("delivery"),
-  markDelivered
-);
-
-// --------------------------------------------------
-// ✅ DELIVERY DASHBOARD
+// 📊 DELIVERY DASHBOARD
 // --------------------------------------------------
 router.get(
   "/dashboard",
@@ -84,5 +57,34 @@ router.get(
   deliveryDashboard
 );
 
+// --------------------------------------------------
+// 👤 GET DELIVERY PROFILE
+// --------------------------------------------------
+router.get(
+  "/profile",
+  protect,
+  authorizeRoles("delivery"),
+  getDeliveryProfile
+);
+
+// --------------------------------------------------
+// ✏️ UPDATE DELIVERY PROFILE (Editable + profilePhoto + licenseImage)
+// --------------------------------------------------
+router.put(
+  "/profile",
+  protect,
+  authorizeRoles("delivery"),
+  uploadDeliveryProfile, // Handles profilePhoto + licenseImage uploads
+  updateDeliveryProfile
+);
+
 module.exports = router;
+
+
+
+
+
+
+
+
 

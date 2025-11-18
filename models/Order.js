@@ -15,9 +15,10 @@ const orderSchema = new mongoose.Schema(
       required: true,
     },
 
+    // Delivery partner reference
     deliveryPartner: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "DeliveryPartner",
       default: null,
     },
 
@@ -32,12 +33,13 @@ const orderSchema = new mongoose.Schema(
         price: Number,
         quantity: Number,
         image: String,
-      }
+      },
     ],
 
     totalPrice: {
       type: Number,
       required: true,
+      min: 0,
     },
 
     address: {
@@ -45,8 +47,8 @@ const orderSchema = new mongoose.Schema(
       required: true,
     },
 
+    // Customer delivery location
     deliveryLocation: {
-      // Customer live location (lat/lng)
       type: {
         type: String,
         enum: ["Point"],
@@ -74,7 +76,8 @@ const orderSchema = new mongoose.Schema(
     razorpayPaymentId: String,
     razorpaySignature: String,
 
-    orderStatus: {
+    // 🚀 Main order status system
+    status: {
       type: String,
       enum: [
         "Placed",
@@ -83,32 +86,39 @@ const orderSchema = new mongoose.Schema(
         "Ready for Pickup",
         "On the Way",
         "Delivered",
-        "Cancelled"
+        "Cancelled",
       ],
       default: "Placed",
     },
 
+    // Timeline (history)
     timeline: [
       {
         status: String,
-        timestamp: Date,
-      }
+        timestamp: { type: Date, default: Date.now },
+      },
     ],
 
+    // Socket room id
     socketRoomId: {
-      type: String, // Used for live tracking
+      type: String,
       required: true,
     },
 
+    // Delivery time (estimate minutes)
     deliveryTimeEstimate: {
       type: Number,
-      default: 30, // minutes
-    }
+      default: 30,
+    },
   },
   { timestamps: true }
 );
 
+// Geo index
 orderSchema.index({ deliveryLocation: "2dsphere" });
 
 module.exports = mongoose.model("Order", orderSchema);
+
+
+
 

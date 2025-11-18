@@ -7,6 +7,7 @@ const userSchema = new mongoose.Schema(
     name: {
       type: String,
       required: [true, "Please enter your name"],
+      trim: true,
     },
 
     email: {
@@ -14,13 +15,14 @@ const userSchema = new mongoose.Schema(
       required: [true, "Please enter your email"],
       unique: true,
       lowercase: true,
+      trim: true,
     },
 
     password: {
       type: String,
       required: [true, "Please enter a password"],
       minlength: 6,
-      select: false, // hide password by default
+      select: false, // never expose password
     },
 
     role: {
@@ -31,7 +33,7 @@ const userSchema = new mongoose.Schema(
 
     phone: {
       type: String,
-      required: true,
+      required: [true, "Phone number is required"],
     },
 
     address: {
@@ -44,43 +46,69 @@ const userSchema = new mongoose.Schema(
       default: "",
     },
 
-    // Restaurant-specific fields
+    // -----------------------------------------------------
+    // RESTAURANT OWNER DETAILS
+    // -----------------------------------------------------
     restaurantDetails: {
-      restaurantName: String,
-      gstNumber: String,
-      fssaiNumber: String,
+      restaurantName: { type: String, default: "" },
+      gstNumber: { type: String, default: "" },
+      fssaiNumber: { type: String, default: "" },
       isApproved: {
         type: Boolean,
-        default: false, // Admin approval needed
-      }
+        default: false, // Admin must approve
+      },
     },
 
-    // Delivery Partner-specific
+    // -----------------------------------------------------
+    // DELIVERY PARTNER DETAILS
+    // -----------------------------------------------------
     deliveryDetails: {
-      vehicleNumber: String,
-      drivingLicense: String,
+      vehicleNumber: { type: String, default: "" },
+      drivingLicense: { type: String, default: "" },
+
+      // If available = online/offline toggle
       isAvailable: {
         type: Boolean,
-        default: true,
-      }
-    }
+        default: false, // default OFFLINE for safety
+      },
+
+      // Real-time location for delivery partner
+      liveLocation: {
+        type: {
+          type: String,
+          enum: ["Point"],
+          default: "Point",
+        },
+        coordinates: {
+          type: [Number], // [lng, lat]
+          default: [0, 0],
+        },
+      },
+    },
   },
   { timestamps: true }
 );
 
-// Hash Password Before Save
+// ---------------------------------------------------------
+// PASSWORD HASHING
+// ---------------------------------------------------------
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
-
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
   next();
 });
 
-// Compare Password
+// ---------------------------------------------------------
+// PASSWORD MATCH CHECK
+// ---------------------------------------------------------
 userSchema.methods.comparePassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
+// Index for location queries
+userSchema.index({ "deliveryDetails.liveLocation": "2dsphere" });
+
 module.exports = mongoose.model("User", userSchema);
+
 

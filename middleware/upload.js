@@ -1,59 +1,74 @@
+// backend/middleware/upload.js
+
 const multer = require("multer");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const cloudinary = require("../config/cloudinaryConfig");
 
 // --------------------------------------------------
-// ✅ Configure Cloudinary Storage
+// CLOUDINARY STORAGE CONFIG
 // --------------------------------------------------
 const storage = new CloudinaryStorage({
   cloudinary,
   params: {
-    folder: "food-delivery-app",
-    allowed_formats: ["jpg", "jpeg", "png"],
+    folder: "food-delivery-app", // Cloudinary folder
+    allowed_formats: ["jpg", "jpeg", "png"], // Allowed image formats
   },
 });
 
 // --------------------------------------------------
-// ✅ Multer Upload Setup
+// MULTER CONFIG
 // --------------------------------------------------
 const upload = multer({
   storage,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
+    fileSize: 5 * 1024 * 1024, // 5MB max file size
   },
   fileFilter: (req, file, cb) => {
-    const allowed = ["image/jpeg", "image/png", "image/jpg"];
-    if (!allowed.includes(file.mimetype)) {
-      return cb(new Error("Only .jpeg, .jpg, .png formats allowed!"));
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
+    if (!allowedTypes.includes(file.mimetype)) {
+      return cb(new Error("Only .jpeg, .jpg, .png files are allowed"));
     }
     cb(null, true);
   },
 });
 
 // --------------------------------------------------
-// ✅ Separate Upload Middlewares
+// RESTAURANT IMAGES (Logo + Banner)
 // --------------------------------------------------
-
-// 🟢 For restaurant profile (upload both logo + banner)
 const uploadRestaurantImages = upload.fields([
   { name: "logo", maxCount: 1 },
   { name: "banner", maxCount: 1 },
 ]);
 
-// 🟢 For dishes (upload one image only)
+// --------------------------------------------------
+// DISH IMAGE (Single Image)
+// --------------------------------------------------
 const uploadDishImage = upload.single("image");
 
-// 🟢 For chat (upload a single image message)
+// --------------------------------------------------
+// CHAT IMAGE (Single Image)
+// --------------------------------------------------
 const uploadChatImage = upload.single("image");
 
 // --------------------------------------------------
-// ✅ Export all upload middlewares
+// DELIVERY PARTNER PROFILE
+// (Profile Photo + License Image)
+// --------------------------------------------------
+const uploadDeliveryProfile = upload.fields([
+  { name: "profilePhoto", maxCount: 1 },
+  { name: "licenseImage", maxCount: 1 },
+]);
+
+// --------------------------------------------------
+// EXPORTS
 // --------------------------------------------------
 module.exports = {
   uploadRestaurantImages,
   uploadDishImage,
   uploadChatImage,
+  uploadDeliveryProfile,
 };
+
 
 
 

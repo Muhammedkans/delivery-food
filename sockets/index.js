@@ -1,7 +1,14 @@
+// backend/socket/index.js
+const { Server } = require("socket.io");
+
 let io;
 
+/**
+ * Initialize Socket.IO server
+ * @param {http.Server} server
+ */
 const initSocket = (server) => {
-  io = require("socket.io")(server, {
+  io = new Server(server, {
     cors: {
       origin: process.env.FRONTEND_URL || "http://localhost:5173",
       methods: ["GET", "POST"],
@@ -12,75 +19,80 @@ const initSocket = (server) => {
   io.on("connection", (socket) => {
     console.log(`✅ Client connected: ${socket.id}`);
 
-    // Join user room for personalized updates
+    // --------------------------------------------------
+    // JOIN ROOMS
+    // --------------------------------------------------
     socket.on("joinUser", (userId) => {
+      if (!userId) return;
       socket.join(`user_${userId}`);
-      console.log(`User ${userId} joined their room`);
+      console.log(`➡️ User joined: user_${userId}`);
     });
 
-    // Join restaurant room
     socket.on("joinRestaurant", (restaurantId) => {
+      if (!restaurantId) return;
       socket.join(`restaurant_${restaurantId}`);
-      console.log(`Restaurant ${restaurantId} room joined`);
+      console.log(`➡️ Restaurant joined: restaurant_${restaurantId}`);
     });
 
-    // Join delivery room
     socket.on("joinDelivery", (deliveryId) => {
+      if (!deliveryId) return;
       socket.join(`delivery_${deliveryId}`);
-      console.log(`Delivery partner ${deliveryId} joined`);
+      console.log(`➡️ Delivery joined: delivery_${deliveryId}`);
     });
 
-    // Join order room for real-time tracking
     socket.on("joinOrder", (orderId) => {
+      if (!orderId) return;
       socket.join(`order_${orderId}`);
-      console.log(`Order ${orderId} tracking room joined`);
+      console.log(`➡️ Order tracking joined: order_${orderId}`);
     });
 
-    // Order status update (from restaurant/delivery)
+    // --------------------------------------------------
+    // ORDER STATUS UPDATE (Frontend / Controller triggered)
+    // --------------------------------------------------
     socket.on("updateOrderStatus", ({ orderId, status, userId, restaurantId }) => {
-      // Notify customer
-      io.to(`order_${orderId}`).emit("orderStatusUpdated", {
-        orderId,
-        status,
-        timestamp: new Date(),
-      });
+      if (!orderId || !status) return;
 
-      // Notify restaurant
-      if (restaurantId) {
-        io.to(`restaurant_${restaurantId}`).emit("orderUpdate", {
-          orderId,
-          status,
-        });
-      }
+      emitToOrderRoom(orderId, { orderId, status });
 
-      // Notify user
-      if (userId) {
-        io.to(`user_${userId}`).emit("orderUpdate", {
-          orderId,
-          status,
-        });
-      }
+      if (userId) emitToUser(userId, { orderId, status });
+      if (restaurantId) emitToRestaurant(restaurantId, { orderId, status });
+
+      console.log(`📦 Order ${orderId} updated to ${status}`);
     });
 
-    // Delivery location update
+    // --------------------------------------------------
+    // DELIVERY PARTNER LIVE LOCATION
+    // --------------------------------------------------
     socket.on("deliveryLocationUpdate", ({ orderId, location, deliveryPartnerId }) => {
+      if (!orderId || !location) return;
+
       io.to(`order_${orderId}`).emit("deliveryLocation", {
         orderId,
         location,
         deliveryPartnerId,
         timestamp: new Date(),
       });
+
+      console.log(`📍 Live location for order ${orderId}`);
     });
 
-    // New order notification (for restaurant)
+    // --------------------------------------------------
+    // NEW ORDER FOR RESTAURANT
+    // --------------------------------------------------
     socket.on("newOrder", ({ restaurantId, order }) => {
+      if (!restaurantId || !order) return;
+
       io.to(`restaurant_${restaurantId}`).emit("newOrderNotification", {
         order,
         timestamp: new Date(),
       });
+
+      console.log(`🛎️ New order sent to restaurant_${restaurantId}`);
     });
 
-    // Disconnect
+    // --------------------------------------------------
+    // DISCONNECT
+    // --------------------------------------------------
     socket.on("disconnect", () => {
       console.log(`❌ Client disconnected: ${socket.id}`);
     });
@@ -89,32 +101,55 @@ const initSocket = (server) => {
   return io;
 };
 
-// Helper function to emit events from controllers
-const emitOrderUpdate = (orderId, status, userId, restaurantId) => {
+/* ===========================================================
+   🔥 HELPER EMIT FUNCTIONS — Used inside Controllers
+   =========================================================== */
+
+const emitToOrderRoom = (orderId, payload) => {
   if (io) {
     io.to(`order_${orderId}`).emit("orderStatusUpdated", {
-      orderId,
-      status,
+      ...payload,
       timestamp: new Date(),
     });
-
-    if (userId) {
-      io.to(`user_${userId}`).emit("orderUpdate", {
-        orderId,
-        status,
-      });
-    }
-
-    if (restaurantId) {
-      io.to(`restaurant_${restaurantId}`).emit("orderUpdate", {
-        orderId,
-        status,
-      });
-    }
   }
 };
 
-module.exports = { initSocket, io, emitOrderUpdate };
+const emitToUser = (userId, payload) => {
+  if (io) {
+    io.to(`user_${userId}`).emit("orderUpdate", {
+      ...payload,
+      timestamp: new Date(),
+    });
+  }
+};
+
+const emitToRestaurant = (restaurantId, payload) => {
+  if (io) {
+    io.to(`restaurant_${restaurantId}`).emit("orderUpdate", {
+      ...payload,
+      timestamp: new Date(),
+    });
+  }
+};
+
+/**
+ * Universal emit function called from controllers
+ */
+const emitOrderUpdate = (orderId, status, userId, restaurantId) => {
+  emitToOrderRoom(orderId, { orderId, status });
+
+  if (userId) emitToUser(userId, { orderId, status });
+  if (restaurantId) emitToRestaurant(restaurantId, { orderId, status });
+};
+
+module.exports = {
+  initSocket,
+  emitOrderUpdate,
+};
+
+
+
+
 
 
 
