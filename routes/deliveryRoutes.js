@@ -2,7 +2,6 @@
 
 const express = require("express");
 const router = express.Router();
-
 const {
   toggleOnlineStatus,
   updateLocation,
@@ -11,74 +10,58 @@ const {
   getDeliveryProfile,
   updateDeliveryProfile,
 } = require("../controllers/deliveryController");
+const { protect } = require("../middleware/authMiddleware");
+const { uploadDeliveryProfile, multerErrorHandler } = require("../middleware/upload"); // ✅ Correct import
 
-const { protect, authorizeRoles } = require("../middleware/authMiddleware");
+// ----------------------------
+// 1️⃣ TOGGLE ONLINE / OFFLINE
+// ----------------------------
+router.put("/online", protect, toggleOnlineStatus);
 
-// ⭐ File upload middleware for delivery profile
-const { uploadDeliveryProfile } = require("../middleware/upload");
+// ----------------------------
+// 2️⃣ UPDATE LIVE LOCATION
+// ----------------------------
+router.put("/location", protect, updateLocation);
 
-// --------------------------------------------------
-// 🚀 TOGGLE ONLINE / OFFLINE
-// --------------------------------------------------
-router.put(
-  "/online",
-  protect,
-  authorizeRoles("delivery"),
-  toggleOnlineStatus
-);
+// ----------------------------
+// 3️⃣ UPDATE ORDER STATUS
+// ----------------------------
+router.put("/status/:orderId", protect, updateDeliveryStatus);
 
-// --------------------------------------------------
-// 📍 UPDATE LIVE LOCATION
-// --------------------------------------------------
-router.put(
-  "/location",
-  protect,
-  authorizeRoles("delivery"),
-  updateLocation
-);
+// ----------------------------
+// 4️⃣ DELIVERY DASHBOARD
+// ----------------------------
+router.get("/dashboard", protect, deliveryDashboard);
 
-// --------------------------------------------------
-// 📦 UPDATE DELIVERY STATUS
-// --------------------------------------------------
-router.put(
-  "/status/:orderId",
-  protect,
-  authorizeRoles("delivery"),
-  updateDeliveryStatus
-);
+// ----------------------------
+// 5️⃣ GET DELIVERY PROFILE
+// ----------------------------
+router.get("/profile", protect, getDeliveryProfile);
 
-// --------------------------------------------------
-// 📊 DELIVERY DASHBOARD
-// --------------------------------------------------
-router.get(
-  "/dashboard",
-  protect,
-  authorizeRoles("delivery"),
-  deliveryDashboard
-);
-
-// --------------------------------------------------
-// 👤 GET DELIVERY PROFILE
-// --------------------------------------------------
-router.get(
-  "/profile",
-  protect,
-  authorizeRoles("delivery"),
-  getDeliveryProfile
-);
-
-// --------------------------------------------------
-// ✏️ UPDATE DELIVERY PROFILE (Editable + profilePhoto + licenseImage)
-// --------------------------------------------------
+// ----------------------------
+// 6️⃣ UPDATE DELIVERY PROFILE (with Multer for file upload)
+// ----------------------------
 router.put(
   "/profile",
   protect,
-  authorizeRoles("delivery"),
-  uploadDeliveryProfile, // Handles profilePhoto + licenseImage uploads
+  uploadDeliveryProfile, // ✅ Use the correct exported middleware
   updateDeliveryProfile
 );
 
+// ----------------------------
+// 7️⃣ Optional: Multer error handler
+// ----------------------------
+router.use(multerErrorHandler);
+
 module.exports = router;
+
+
+
+
+
+
+
+
 
 
 

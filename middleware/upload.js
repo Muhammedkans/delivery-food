@@ -9,31 +9,44 @@ const cloudinary = require("../config/cloudinaryConfig");
 // --------------------------------------------------
 const storage = new CloudinaryStorage({
   cloudinary,
-  params: {
-    folder: "food-delivery-app", // Cloudinary folder
-    allowed_formats: ["jpg", "jpeg", "png"], // Allowed image formats
-  },
+  params: (req, file) => ({
+    folder: "food-delivery-app",
+    format: undefined, // Auto detect file type
+    public_id: `${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`,
+    transformation: [{ width: 600, height: 600, crop: "limit" }],
+  }),
 });
 
 // --------------------------------------------------
-// MULTER CONFIG
+// MULTER BASE CONFIG
 // --------------------------------------------------
 const upload = multer({
   storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB max file size
-  },
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB limit
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
-    if (!allowedTypes.includes(file.mimetype)) {
-      return cb(new Error("Only .jpeg, .jpg, .png files are allowed"));
+    const allowed = ["image/jpeg", "image/jpg", "image/png"];
+    if (!allowed.includes(file.mimetype)) {
+      return cb(new Error("Only JPG, JPEG, PNG allowed ⚠️"));
     }
     cb(null, true);
   },
 });
 
 // --------------------------------------------------
-// RESTAURANT IMAGES (Logo + Banner)
+// 🔥 UNIVERSAL DEBUG LOGGER
+// --------------------------------------------------
+const uploadLogger = (req, res, next) => {
+  console.log("------------------------------------------------");
+  console.log("🔥 MULTER DEBUG LOGGER TRIGGERED");
+  console.log("➡️ req.body:", req.body);
+  console.log("➡️ req.file:", req.file);
+  console.log("➡️ req.files:", req.files);
+  console.log("------------------------------------------------");
+  next();
+};
+
+// --------------------------------------------------
+// RESTAURANT: logo + banner
 // --------------------------------------------------
 const uploadRestaurantImages = upload.fields([
   { name: "logo", maxCount: 1 },
@@ -41,18 +54,17 @@ const uploadRestaurantImages = upload.fields([
 ]);
 
 // --------------------------------------------------
-// DISH IMAGE (Single Image)
+// DISH IMAGE
 // --------------------------------------------------
 const uploadDishImage = upload.single("image");
 
 // --------------------------------------------------
-// CHAT IMAGE (Single Image)
+// CHAT IMAGE
 // --------------------------------------------------
 const uploadChatImage = upload.single("image");
 
 // --------------------------------------------------
-// DELIVERY PARTNER PROFILE
-// (Profile Photo + License Image)
+// DELIVERY PROFILE (profilePhoto + licenseImage)
 // --------------------------------------------------
 const uploadDeliveryProfile = upload.fields([
   { name: "profilePhoto", maxCount: 1 },
@@ -60,14 +72,36 @@ const uploadDeliveryProfile = upload.fields([
 ]);
 
 // --------------------------------------------------
-// EXPORTS
+// 🔥 MULTER ERROR HANDLER
+// --------------------------------------------------
+const multerErrorHandler = (err, req, res, next) => {
+  console.error("❌ MULTER ERROR CAUGHT:", err.message);
+
+  return res.status(400).json({
+    success: false,
+    message: "Upload Failed",
+    error: err.message,
+  });
+};
+
+// --------------------------------------------------
+// EXPORT
 // --------------------------------------------------
 module.exports = {
   uploadRestaurantImages,
   uploadDishImage,
   uploadChatImage,
   uploadDeliveryProfile,
+  uploadLogger,
+  multerErrorHandler,
 };
+
+
+
+
+
+
+
 
 
 

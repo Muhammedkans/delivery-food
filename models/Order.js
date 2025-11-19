@@ -89,6 +89,7 @@ const orderSchema = new mongoose.Schema(
         "Cancelled",
       ],
       default: "Placed",
+      alias: "orderStatus",
     },
 
     // Timeline (history)
@@ -109,6 +110,10 @@ const orderSchema = new mongoose.Schema(
     deliveryTimeEstimate: {
       type: Number,
       default: 30,
+    },
+    deliveredAt: {
+      type: Date,
+      default: null,
     },
   },
   { timestamps: true }
