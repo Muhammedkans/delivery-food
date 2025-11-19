@@ -1,5 +1,3 @@
-// backend/middleware/upload.js
-
 const multer = require("multer");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const cloudinary = require("../config/cloudinaryConfig");
@@ -24,9 +22,9 @@ const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB limit
   fileFilter: (req, file, cb) => {
-    const allowed = ["image/jpeg", "image/jpg", "image/png", "image/avif", "image/webp"];
-    if (!allowed.includes(file.mimetype)) {
-      return cb(new Error("Only JPG, JPEG, PNG, AVIF, WEBP allowed ⚠️"));
+    // Accept any image type
+    if (!file.mimetype.startsWith("image/")) {
+      return cb(new Error("Only image files are allowed ⚠️"));
     }
     cb(null, true);
   },
@@ -95,6 +93,7 @@ module.exports = {
   uploadLogger,
   multerErrorHandler,
 };
+
 
 
 
