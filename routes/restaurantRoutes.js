@@ -1,6 +1,6 @@
-// backend/routes/restaurantRoutes.js
 const express = require("express");
 const router = express.Router();
+
 const {
   getRestaurantProfile,
   updateRestaurantProfile,
@@ -10,14 +10,26 @@ const {
   getRestaurantMenu,
   getAllRestaurants,
   toggleRestaurantStatus,
+  getSingleRestaurant,
 } = require("../controllers/restaurantController");
 
 const { protect, authorizeRoles } = require("../middleware/authMiddleware");
 const { uploadRestaurantImages, uploadDishImage } = require("../middleware/upload");
 
-// --------------------------------------------------
-// ✅ GET RESTAURANT PROFILE
-// --------------------------------------------------
+
+// ---------------------------------------------
+// PUBLIC: GET ALL RESTAURANTS
+// ---------------------------------------------
+router.get("/all", getAllRestaurants);
+
+// ---------------------------------------------
+// PUBLIC: GET RESTAURANT MENU
+// ---------------------------------------------
+router.get("/menu/:restaurantId", getRestaurantMenu);
+
+// ---------------------------------------------
+// GET RESTAURANT PROFILE
+// ---------------------------------------------
 router.get(
   "/profile",
   protect,
@@ -25,9 +37,9 @@ router.get(
   getRestaurantProfile
 );
 
-// --------------------------------------------------
-// ✅ UPDATE RESTAURANT PROFILE (banner + logo upload)
-// --------------------------------------------------
+// ---------------------------------------------
+// UPDATE RESTAURANT PROFILE
+// ---------------------------------------------
 router.put(
   "/update",
   protect,
@@ -36,9 +48,9 @@ router.put(
   updateRestaurantProfile
 );
 
-// --------------------------------------------------
-// ✅ ADD DISH
-// --------------------------------------------------
+// ---------------------------------------------
+// ADD DISH
+// ---------------------------------------------
 router.post(
   "/dish",
   protect,
@@ -47,9 +59,9 @@ router.post(
   addDish
 );
 
-// --------------------------------------------------
-// ✅ UPDATE DISH
-// --------------------------------------------------
+// ---------------------------------------------
+// UPDATE DISH
+// ---------------------------------------------
 router.put(
   "/dish/:dishId",
   protect,
@@ -58,9 +70,9 @@ router.put(
   updateDish
 );
 
-// --------------------------------------------------
-// ✅ DELETE DISH
-// --------------------------------------------------
+// ---------------------------------------------
+// DELETE DISH
+// ---------------------------------------------
 router.delete(
   "/dish/:dishId",
   protect,
@@ -68,19 +80,9 @@ router.delete(
   deleteDish
 );
 
-// --------------------------------------------------
-// ✅ PUBLIC API → GET MENU
-// --------------------------------------------------
-router.get("/menu/:restaurantId", getRestaurantMenu);
-
-// --------------------------------------------------
-// ✅ PUBLIC API → ALL RESTAURANTS
-// --------------------------------------------------
-router.get("/all", getAllRestaurants);
-
-// --------------------------------------------------
-// ✅ TOGGLE RESTAURANT OPEN/CLOSE STATUS
-// --------------------------------------------------
+// ---------------------------------------------
+// TOGGLE RESTAURANT STATUS
+// ---------------------------------------------
 router.put(
   "/toggle-status",
   protect,
@@ -88,5 +90,12 @@ router.put(
   toggleRestaurantStatus
 );
 
+// ---------------------------------------------
+// PUBLIC: GET SINGLE RESTAURANT (PUT AT BOTTOM)
+// ---------------------------------------------
+router.get("/:restaurantId", getSingleRestaurant);
+
 module.exports = router;
+
+
 
